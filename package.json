@@ -4,6 +4,7 @@
   "private": false,
   "description": "OpenClaw Heychat (黑盒语音) channel plugin",
   "type": "module",
+  "main": "./index.ts",
   "keywords": [
     "openclaw",
     "heychat",
@@ -25,5 +26,19 @@
     "extensions": [
       "./index.ts"
     ]
+  },
+  "files": [
+    "index.ts",
+    "src/",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepublishOnly": "echo 'Publishing TypeScript source files...'",
+    "version": "echo \"Version: $npm_package_version\""
   }
 }
