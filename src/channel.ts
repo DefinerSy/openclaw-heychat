@@ -645,6 +645,10 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
           const typeStr = String(event.type);
           const innerData = event.data || event;
 
+          // 调试日志：记录所有接收到的事件类型和数据键
+          ctx.log?.debug(`[heychat] [${ctx.accountId}] Received event type: ${typeStr}`);
+          ctx.log?.debug(`[heychat] [${ctx.accountId}] Event data keys: ${Object.keys(innerData).join(", ")}`);
+
           // 检查是否是命令事件 (Type 50 或 Type 5)
           if (typeStr === "50" || typeStr === "5") {
             let commandInfo = null;
@@ -708,6 +712,14 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
             const userId = senderInfo?.user_id;
             const senderName = senderInfo?.nickname || senderInfo?.name || "User";
 
+            // 判断是否是群聊消息
+            // 在 Heychat 中，私信的 roomId 和 channelId 通常相同，群聊则不同
+            // 但如果 roomId 或 channelId 为空，则默认为私信
+            const isGroup = roomId && channelId && roomId !== channelId;
+
+            // 调试日志：记录消息详情
+            ctx.log?.debug(`[heychat] [${ctx.accountId}] Message details: roomId=${roomId}, channelId=${channelId}, userId=${userId}, isGroup=${isGroup}`);
+
             // 添加到已处理集合和正在处理集合
             HEYCHAT_PROCESSED_MSG_IDS.add(msgId);
             HEYCHAT_PROCESSING_MSG_IDS.add(msgId);
@@ -732,7 +744,7 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
               senderName,
               userMessage,
               msgId,
-              isGroup: roomId !== channelId,
+              isGroup,
             }).finally(() => {
               // 从正在处理集合中移除
               HEYCHAT_PROCESSING_MSG_IDS.delete(msgId);
