@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# NPM
+npm-debug.log*
+.npmrc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+test/
+tests/
+
+# Documentation (optional, include if you want)
+# README.md
+# LICENSE
