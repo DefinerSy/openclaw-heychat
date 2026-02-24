@@ -645,12 +645,29 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
           const typeStr = String(event.type);
           const innerData = event.data || event;
 
-          // 调试日志：记录所有接收到的事件类型和数据键
-          ctx.log?.debug(`[heychat] [${ctx.accountId}] Received event type: ${typeStr}`);
-          ctx.log?.debug(`[heychat] [${ctx.accountId}] Event data keys: ${Object.keys(innerData).join(", ")}`);
+          // 调试日志：记录所有接收到的事件类型
+          ctx.log?.info(`[heychat] [${ctx.accountId}] Received event type: ${typeStr}`);
+          ctx.log?.info(`[heychat] [${ctx.accountId}] Event data: ${JSON.stringify(innerData).substring(0, 2000)}`);
 
-          // 检查是否是命令事件 (Type 50 或 Type 5)
-          if (typeStr === "50" || typeStr === "5") {
+          // 记录 PUSH 事件的完整数据
+          if (typeStr === "PUSH" || typeStr === "push") {
+            ctx.log?.info(`[heychat] [${ctx.accountId}] PUSH event: ${JSON.stringify(event).substring(0, 1000)}`);
+
+            // 检查是否是通知事件（event: "80"），这种事件只包含 userid，不包含消息内容
+            const pushData = event.data || {};
+            if (pushData.event === "80" && pushData.type === "notify") {
+              ctx.log?.info(`[heychat] [${ctx.accountId}] Received heartbeat/notification from userid=${pushData.userid}`);
+              // 通知事件不包含消息内容，忽略
+              return;
+            }
+          }
+
+          // 检查是否是消息事件 (Type 50=命令，Type 5=普通消息，Type 1=文本消息)
+          // 也处理任何包含 msg_id 和 msg 字段的事件（私信可能使用不同类型）
+          const isMessageEvent = typeStr === "50" || typeStr === "5" || typeStr === "1" ||
+            (innerData.msg_id && (innerData.msg || innerData.command_info));
+
+          if (isMessageEvent) {
             let commandInfo = null;
             let roomBaseInfo = null;
             let channelBaseInfo = null;
@@ -665,8 +682,8 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
               channelBaseInfo = innerData.channel_base_info;
               senderInfo = innerData.sender_info;
               userMessage = commandInfo.options?.[0]?.value || "";
-            } else if (typeStr === "5") {
-              // Type 5: Regular message
+            } else if (typeStr === "5" || typeStr === "1") {
+              // Type 5: Regular message, Type 1: Text message
               roomBaseInfo = innerData.room_base_info;
               channelBaseInfo = innerData.channel_base_info;
               senderInfo = innerData.user_base_info || innerData.sender_info || innerData.user_info;
@@ -686,6 +703,14 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
                 if (innerData.msg) {
                   userMessage = innerData.msg;
                 }
+              }
+            } else {
+              // Fallback: extract data from common fields
+              roomBaseInfo = innerData.room_base_info || innerData.room_info;
+              channelBaseInfo = innerData.channel_base_info || innerData.channel_info;
+              senderInfo = innerData.user_base_info || innerData.sender_info || innerData.user_info;
+              if (innerData.msg && !userMessage) {
+                userMessage = innerData.msg;
               }
             }
 
@@ -744,7 +769,7 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
               senderName,
               userMessage,
               msgId,
-              isGroup,
+              isGroup: roomId !== channelId,
             }).finally(() => {
               // 从正在处理集合中移除
               HEYCHAT_PROCESSING_MSG_IDS.delete(msgId);
