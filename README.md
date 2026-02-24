@@ -1,8 +1,16 @@
 # OpenClaw Heychat Plugin
 
-[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw)
+[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw)。
 
 > **⚠️ 系统要求**：本插件目前仅支持 **Windows** 操作系统。
+
+## 相关链接
+
+- 📘 **黑盒语音开放平台文档**: https://github.com/QingFengOpen/HeychatDoc
+- 📦 **NPM 包**: https://www.npmjs.com/package/definersy-heychat-openclaw
+- 🔗 GitHub 仓库：https://github.com/DefinerSy/openclaw-heychat
+- 📖 OpenClaw 文档：https://docs.openclaw.ai/
+- 🐛 问题反馈：https://github.com/DefinerSy/openclaw-heychat/issues
 
 ## 功能特性
 
@@ -11,29 +19,22 @@
 - ✅ 群组策略控制（开放/白名单/阻止）
 - ✅ 消息去重
 - ✅ WebSocket 自动重连
-- ✅ 与 OpenClaw AI 聊天集成
-
-## 相关链接
-
-- 📘 **黑盒语音开放平台文档**: https://github.com/QingFengOpen/HeychatDoc
-- 🔗 GitHub 仓库：https://github.com/DefinerSy/openclaw-heychat
-- 📖 OpenClaw 文档：https://docs.openclaw.ai/
-- 🐛 问题反馈：https://github.com/DefinerSy/openclaw-heychat/issues
 
 ## 安装
 
-### 前提条件
+### 方式一：从 NPM 安装（推荐）
 
-1. 已安装 [OpenClaw](https://github.com/openclaw-ai/openclaw)（仅支持 Windows）
-2. 已获取 Heychat App Token
+```bash
+npm install definersy-heychat-openclaw
+```
 
-### 安装步骤
+### 方式二：从 GitHub 安装
 
 ```bash
 # 克隆插件到 OpenClaw 扩展目录
 git clone https://github.com/DefinerSy/openclaw-heychat.git ~/.openclaw/extensions/heychat
 
-# 或者安装到全局 node_modules
+# 安装依赖
 cd ~/.openclaw/extensions/heychat
 npm install
 ```
