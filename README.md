@@ -1,6 +1,6 @@
 # OpenClaw Heychat Plugin
 
-[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw) - 集成 AI 聊天功能。
+[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw) 
 
 ## 功能特性
 
