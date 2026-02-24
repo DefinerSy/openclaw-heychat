@@ -1,6 +1,6 @@
 # OpenClaw Heychat Plugin
 
-[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw) 
+[Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw) - 集成 AI 聊天功能。
 
 ## 功能特性
 
@@ -24,7 +24,7 @@
 # 克隆插件到 OpenClaw 扩展目录
 git clone https://github.com/DefinerSy/openclaw-heychat.git ~/.openclaw/extensions/heychat
 
-# 安装依赖
+# 或者安装到全局 node_modules
 cd ~/.openclaw/extensions/heychat
 npm install
 ```
@@ -38,30 +38,14 @@ npm install
 
 ## 配置
 
-### 方式一：使用 openclaw config 命令（推荐）
-
-```bash
-# 设置 Token
-openclaw config set channels.heychat.token "YOUR_HEYCHAT_APP_TOKEN"
-
-# 设置群组策略
-openclaw config set channels.heychat.groupPolicy "allowlist"
-
-# 设置私信策略
-openclaw config set channels.heychat.dmPolicy "pairing"
-
-# 重启网关应用配置
-openclaw gateway restart
-```
-
-### 方式二：通过 UI 面板配置
+### 方式一：通过 UI 面板配置（推荐）
 
 1. 启动 OpenClaw：`openclaw`
 2. 打开浏览器访问：http://127.0.0.1:18789
 3. 进入 **Channels** -> **Heychat**
 4. 填写 Token 和其他配置
 
-### 方式三：编辑配置文件
+### 方式二：编辑配置文件
 
 编辑 `~/.openclaw/openclaw.json`：
 
@@ -84,7 +68,7 @@ openclaw gateway restart
 }
 ```
 
-### 方式四：环境变量
+### 方式三：环境变量
 
 ```bash
 export HEYCHAT_APP_TOKEN="YOUR_HEYCHAT_APP_TOKEN"
@@ -125,13 +109,6 @@ openclaw
 ### 群组配置 (groups)
 
 针对特定群组的精细控制：
-
-```bash
-# 使用命令配置
-openclaw config set channels.heychat.groups.*.requireMention true
-```
-
-JSON 配置示例：
 
 ```json
 {
@@ -182,8 +159,6 @@ JSON 配置示例：
 
 ```bash
 # 1. 在配置中添加用户到 allowFrom
-openclaw config set channels.heychat.allowFrom '["user-id-1", "user-id-2"]'
-
 # 2. 用户发送消息触发配对
 # 3. 配对成功后可正常对话
 ```
@@ -194,28 +169,6 @@ openclaw config set channels.heychat.allowFrom '["user-id-1", "user-id-2"]'
 
 ```
 @机器人 今天天气怎么样？
-```
-
-## 常用命令
-
-```bash
-# 查看当前配置
-openclaw config get channels.heychat
-
-# 查看 Token（已脱敏）
-openclaw config get channels.heychat.token
-
-# 启用/禁用插件
-openclaw config set channels.heychat.enabled true
-openclaw config set channels.heychat.enabled false
-
-# 设置群组策略
-openclaw config set channels.heychat.groupPolicy "allowlist"
-openclaw config set channels.heychat.groupPolicy "disabled"
-openclaw config set channels.heychat.groupPolicy "open"
-
-# 添加白名单群组
-openclaw config set channels.heychat.allowFrom '["group-id-1", "group-id-2"]'
 ```
 
 ## 故障排除
@@ -238,6 +191,36 @@ openclaw config set channels.heychat.allowFrom '["group-id-1", "group-id-2"]'
 - 确认 Token 有效
 - 查看 OpenClaw 日志：`openclaw logs --follow`
 
+### 私信消息无响应
+
+**问题描述**：直接发送私信消息时，机器人没有响应。
+
+**原因**：Heychat 平台的 WebSocket 只推送通知事件（event: "80"），不包含实际的消息内容。私信消息需要使用 `/chat` 命令触发才会通过 WebSocket 推送。
+
+**解决方案**：
+
+1. **使用 `/chat` 命令发送私信**（推荐）：
+   ```
+   /chat 你好，这是一条测试消息
+   ```
+
+2. **确认配置正确**：
+   - `dmPolicy` 设置为 `open`（开放模式）或 `pairing`（配对模式）
+   - 如果使用 `allowlist` 模式，确保用户 ID 在 `allowFrom` 列表中
+
+3. **查看日志确认事件**：
+   ```bash
+   openclaw logs --follow
+   ```
+   正常收到消息时应该看到 `Type 5` 或 `Type 50` 事件。
+
+**技术说明**：
+- Heychat WebSocket 推送的事件类型：
+  - `event: "80", type: "notify"` - 心跳/状态通知，仅包含机器人 ID，无消息内容
+  - `type: "50"` - Bot 命令事件（如 `/chat` 命令）
+  - `type: "5"` - 普通消息事件
+- 只有 Type 5 和 Type 50 事件才包含实际消息内容
+
 ## 开发
 
 ```bash
@@ -257,6 +240,7 @@ npm install
 openclaw-heychat/
 ├── index.ts              # 插件入口
 ├── package.json          # 依赖配置
+├── LICENSE               # MIT License
 ├── README.md             # 说明文档
 └── src/
     ├── channel.ts        # 频道主逻辑
@@ -280,5 +264,4 @@ MIT License
 
 - [GitHub 仓库](https://github.com/DefinerSy/openclaw-heychat)
 - [OpenClaw 文档](https://docs.openclaw.ai/)
-- [OpenClaw 配置命令](https://docs.openclaw.ai/cli/config)
 - [问题反馈](https://github.com/DefinerSy/openclaw-heychat/issues)
