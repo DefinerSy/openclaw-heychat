@@ -2,6 +2,8 @@
 
 [Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw) - 集成 AI 聊天功能。
 
+> **⚠️ 系统要求**：本插件目前仅支持 **Windows** 操作系统。
+
 ## 功能特性
 
 - ✅ 支持私信和群组消息
@@ -11,11 +13,18 @@
 - ✅ WebSocket 自动重连
 - ✅ 与 OpenClaw AI 聊天集成
 
+## 相关链接
+
+- 📘 **黑盒语音开放平台文档**: https://github.com/QingFengOpen/HeychatDoc
+- 🔗 GitHub 仓库：https://github.com/DefinerSy/openclaw-heychat
+- 📖 OpenClaw 文档：https://docs.openclaw.ai/
+- 🐛 问题反馈：https://github.com/DefinerSy/openclaw-heychat/issues
+
 ## 安装
 
 ### 前提条件
 
-1. 已安装 [OpenClaw](https://github.com/openclaw-ai/openclaw)
+1. 已安装 [OpenClaw](https://github.com/openclaw-ai/openclaw)（仅支持 Windows）
 2. 已获取 Heychat App Token
 
 ### 安装步骤
@@ -35,6 +44,8 @@ npm install
 2. 进入设置 -> 开发者选项
 3. 创建机器人应用
 4. 复制 App Token
+
+> 💡 详细文档请参考：[黑盒语音开放平台文档](https://github.com/QingFengOpen/HeychatDoc)
 
 ## 配置
 
@@ -251,6 +262,14 @@ openclaw-heychat/
     └── runtime.ts        # 运行时
 ```
 
+## 系统要求
+
+| 项目 | 要求 |
+|------|------|
+| 操作系统 | **Windows 10/11** |
+| Node.js | v18+ |
+| OpenClaw | 2026.2.23+ |
+
 ## 许可证
 
 MIT License
@@ -259,9 +278,4 @@ MIT License
 
 - [OpenClaw](https://github.com/openclaw-ai/openclaw) - 基础框架
 - [Heychat](https://www.xiaoheihe.cn/) - 黑盒语音平台
-
-## 相关链接
-
-- [GitHub 仓库](https://github.com/DefinerSy/openclaw-heychat)
-- [OpenClaw 文档](https://docs.openclaw.ai/)
-- [问题反馈](https://github.com/DefinerSy/openclaw-heychat/issues)
+- [黑盒语音开放平台文档](https://github.com/QingFengOpen/HeychatDoc) - 社区维护的 Heychat API 文档
