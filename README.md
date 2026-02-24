@@ -38,14 +38,30 @@ npm install
 
 ## 配置
 
-### 方式一：通过 UI 面板配置（推荐）
+### 方式一：使用 openclaw config 命令（推荐）
+
+```bash
+# 设置 Token
+openclaw config set channels.heychat.token "YOUR_HEYCHAT_APP_TOKEN"
+
+# 设置群组策略
+openclaw config set channels.heychat.groupPolicy "allowlist"
+
+# 设置私信策略
+openclaw config set channels.heychat.dmPolicy "pairing"
+
+# 重启网关应用配置
+openclaw gateway restart
+```
+
+### 方式二：通过 UI 面板配置
 
 1. 启动 OpenClaw：`openclaw`
 2. 打开浏览器访问：http://127.0.0.1:18789
 3. 进入 **Channels** -> **Heychat**
 4. 填写 Token 和其他配置
 
-### 方式二：编辑配置文件
+### 方式三：编辑配置文件
 
 编辑 `~/.openclaw/openclaw.json`：
 
@@ -68,7 +84,7 @@ npm install
 }
 ```
 
-### 方式三：环境变量
+### 方式四：环境变量
 
 ```bash
 export HEYCHAT_APP_TOKEN="YOUR_HEYCHAT_APP_TOKEN"
@@ -109,6 +125,13 @@ openclaw
 ### 群组配置 (groups)
 
 针对特定群组的精细控制：
+
+```bash
+# 使用命令配置
+openclaw config set channels.heychat.groups.*.requireMention true
+```
+
+JSON 配置示例：
 
 ```json
 {
@@ -159,6 +182,8 @@ openclaw
 
 ```bash
 # 1. 在配置中添加用户到 allowFrom
+openclaw config set channels.heychat.allowFrom '["user-id-1", "user-id-2"]'
+
 # 2. 用户发送消息触发配对
 # 3. 配对成功后可正常对话
 ```
@@ -169,6 +194,28 @@ openclaw
 
 ```
 @机器人 今天天气怎么样？
+```
+
+## 常用命令
+
+```bash
+# 查看当前配置
+openclaw config get channels.heychat
+
+# 查看 Token（已脱敏）
+openclaw config get channels.heychat.token
+
+# 启用/禁用插件
+openclaw config set channels.heychat.enabled true
+openclaw config set channels.heychat.enabled false
+
+# 设置群组策略
+openclaw config set channels.heychat.groupPolicy "allowlist"
+openclaw config set channels.heychat.groupPolicy "disabled"
+openclaw config set channels.heychat.groupPolicy "open"
+
+# 添加白名单群组
+openclaw config set channels.heychat.allowFrom '["group-id-1", "group-id-2"]'
 ```
 
 ## 故障排除
@@ -211,13 +258,13 @@ openclaw-heychat/
 ├── index.ts              # 插件入口
 ├── package.json          # 依赖配置
 ├── README.md             # 说明文档
-├── src/
-│   ├── channel.ts        # 频道主逻辑
-│   ├── accounts.ts       # 账户解析
-│   ├── config-schema.ts  # 配置 Schema
-│   ├── policy.ts         # 群组策略
-│   ├── types.ts          # 类型定义
-│   └── runtime.ts        # 运行时
+└── src/
+    ├── channel.ts        # 频道主逻辑
+    ├── accounts.ts       # 账户解析
+    ├── config-schema.ts  # 配置 Schema
+    ├── policy.ts         # 群组策略
+    ├── types.ts          # 类型定义
+    └── runtime.ts        # 运行时
 ```
 
 ## 许可证
@@ -233,4 +280,5 @@ MIT License
 
 - [GitHub 仓库](https://github.com/DefinerSy/openclaw-heychat)
 - [OpenClaw 文档](https://docs.openclaw.ai/)
+- [OpenClaw 配置命令](https://docs.openclaw.ai/cli/config)
 - [问题反馈](https://github.com/DefinerSy/openclaw-heychat/issues)
