@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# NPM package
+*.tgz
+*.npm
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output (if any)
+dist/
+build/
