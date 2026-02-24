@@ -651,82 +651,92 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
             let roomBaseInfo = null;
             let channelBaseInfo = null;
             let senderInfo = null;
+            let msgId = innerData.msg_id;
+            let userMessage = innerData.msg || "";
 
             if (typeStr === "50" && innerData.command_info) {
+              // Type 50: Bot command event
               commandInfo = innerData.command_info;
               roomBaseInfo = innerData.room_base_info;
               channelBaseInfo = innerData.channel_base_info;
               senderInfo = innerData.sender_info;
+              userMessage = commandInfo.options?.[0]?.value || "";
             } else if (typeStr === "5") {
+              // Type 5: Regular message
+              roomBaseInfo = innerData.room_base_info;
+              channelBaseInfo = innerData.channel_base_info;
+              senderInfo = innerData.user_base_info || innerData.sender_info || innerData.user_info;
+
+              // Try to parse addition for bot_command
               try {
                 const addition = JSON.parse(innerData.addition || "{}");
                 if (addition.bot_command?.command_info) {
                   commandInfo = addition.bot_command.command_info;
-                  roomBaseInfo = innerData.room_base_info;
-                  channelBaseInfo = innerData.channel_base_info;
-                  senderInfo = innerData.user_base_info || innerData.user_info;
+                  userMessage = commandInfo.options?.[0]?.value || "";
+                } else if (innerData.msg) {
+                  // Regular text message without bot_command
+                  userMessage = innerData.msg;
                 }
               } catch (e) {
-                // 忽略解析失败
+                // Use msg directly if addition parsing fails
+                if (innerData.msg) {
+                  userMessage = innerData.msg;
+                }
               }
+            }
+
+            // Check if we have valid message data
+            if (!msgId) {
+              ctx.log?.debug(`[heychat] [${ctx.accountId}] Skipping message without msgId`);
+              return;
+            }
+
+            // 消息去重检查
+            if (HEYCHAT_PROCESSED_MSG_IDS.has(msgId)) {
+              ctx.log?.debug(`[heychat] [${ctx.accountId}] Duplicate message ignored: ${msgId}`);
+              return;
+            }
+
+            // 检查是否正在处理中（防止并发处理）
+            if (HEYCHAT_PROCESSING_MSG_IDS.has(msgId)) {
+              ctx.log?.debug(`[heychat] [${ctx.accountId}] Message already processing: ${msgId}`);
+              return;
+            }
+
+            const roomId = roomBaseInfo?.room_id;
+            const channelId = channelBaseInfo?.channel_id;
+            const userId = senderInfo?.user_id;
+            const senderName = senderInfo?.nickname || senderInfo?.name || "User";
+
+            // 添加到已处理集合和正在处理集合
+            HEYCHAT_PROCESSED_MSG_IDS.add(msgId);
+            HEYCHAT_PROCESSING_MSG_IDS.add(msgId);
+            // 限制缓存大小
+            if (HEYCHAT_PROCESSED_MSG_IDS.size > MAX_MSG_ID_CACHE) {
+              const firstId = HEYCHAT_PROCESSED_MSG_IDS.values().next().value;
+              HEYCHAT_PROCESSED_MSG_IDS.delete(firstId);
             }
 
             if (commandInfo) {
-              const msgId = innerData.msg_id;
-
-              // 检查是否有 msgId
-              if (!msgId) {
-                ctx.log?.debug(`[heychat] [${ctx.accountId}] Skipping message without msgId`);
-                return;
-              }
-
-              // 消息去重检查
-              if (HEYCHAT_PROCESSED_MSG_IDS.has(msgId)) {
-                ctx.log?.debug(`[heychat] [${ctx.accountId}] Duplicate message ignored: ${msgId}`);
-                return;
-              }
-
-              // 检查是否正在处理中（防止并发处理）
-              if (HEYCHAT_PROCESSING_MSG_IDS.has(msgId)) {
-                ctx.log?.debug(`[heychat] [${ctx.accountId}] Message already processing: ${msgId}`);
-                return;
-              }
-
-              // 提取用户消息
-              const userMessage = commandInfo.options?.[0]?.value || "";
-              const roomId = roomBaseInfo?.room_id;
-              const channelId = channelBaseInfo?.channel_id;
-              const userId = senderInfo?.user_id;
-              const senderName = senderInfo?.nickname || "User";
-
-              // 添加到已处理集合和正在处理集合
-              HEYCHAT_PROCESSED_MSG_IDS.add(msgId);
-              HEYCHAT_PROCESSING_MSG_IDS.add(msgId);
-              // 限制缓存大小
-              if (HEYCHAT_PROCESSED_MSG_IDS.size > MAX_MSG_ID_CACHE) {
-                const firstId = HEYCHAT_PROCESSED_MSG_IDS.values().next().value;
-                HEYCHAT_PROCESSED_MSG_IDS.delete(firstId);
-              }
-
               ctx.log?.info(`[heychat] [${ctx.accountId}] Received command: ${commandInfo.name} from ${senderName} (msgId=${msgId})`);
-
-              // 使用 OpenClaw SDK 正确处理 inbound 消息
-              await processHeychatInboundMessage({
-                ctx,
-                roomId,
-                channelId,
-                userId,
-                senderName,
-                userMessage,
-                msgId,
-                isGroup: roomId !== channelId,
-              }).finally(() => {
-                // 从正在处理集合中移除
-                HEYCHAT_PROCESSING_MSG_IDS.delete(msgId);
-              });
             } else {
-              ctx.log?.debug(`[heychat] [${ctx.accountId}] No command_info found in event`);
+              ctx.log?.info(`[heychat] [${ctx.accountId}] Received message from ${senderName} (msgId=${msgId})`);
             }
+
+            // 使用 OpenClaw SDK 正确处理 inbound 消息
+            await processHeychatInboundMessage({
+              ctx,
+              roomId,
+              channelId,
+              userId,
+              senderName,
+              userMessage,
+              msgId,
+              isGroup: roomId !== channelId,
+            }).finally(() => {
+              // 从正在处理集合中移除
+              HEYCHAT_PROCESSING_MSG_IDS.delete(msgId);
+            });
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
