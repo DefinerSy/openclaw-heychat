@@ -1,0 +1,29 @@
+{
+  "name": "@openclaw/heychat",
+  "version": "2026.2.25",
+  "private": false,
+  "description": "OpenClaw Heychat (黑盒语音) channel plugin",
+  "type": "module",
+  "keywords": [
+    "openclaw",
+    "heychat",
+    "黑盒语音",
+    "chatbot",
+    "plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DefinerSy/openclaw-heychat"
+  },
+  "author": "DefinerSy <1780389351@qq.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0",
+    "zod": "^4.3.6"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
