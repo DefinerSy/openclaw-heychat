@@ -22,3 +22,15 @@ Thumbs.db
 # Build output (if any)
 dist/
 build/
+
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Token files
+*.token
+*.secret
+
+# Config with potential secrets
+openclaw.local.json

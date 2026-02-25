@@ -1,0 +1,9 @@
+{
+  "id": "heychat",
+  "channels": ["heychat"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
