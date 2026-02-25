@@ -19,6 +19,7 @@ import {
 } from "./accounts.js";
 import { getHeychatRuntime } from "./runtime.js";
 import { isHeychatGroupAllowed, resolveHeychatGroupConfig } from "./policy.js";
+import { addReactionHeychat, removeReactionHeychat, HeychatEmoji } from "./reactions.js";
 import type { ResolvedHeychatAccount, HeychatConfig, HeychatProbeResult } from "./types.js";
 
 const meta: ChannelMeta = {
@@ -43,7 +44,40 @@ const MSG_TYPE = {
   IMAGE: 3,
   MARKDOWN: 4,
   AT_MARKDOWN: 10,
+  CARD: 20,
 };
+
+// Room ID 到 Channel ID 的映射缓存 (room_id -> channel_id)
+const roomToChannelMap = new Map<string, string>();
+
+// Channel ID 到 Room ID 的反向映射 (channel_id -> room_id)
+const channelToRoomMap = new Map<string, string>();
+
+// 缓存 room_id -> channel_id 映射
+function cacheRoomChannel(roomId: string, channelId: string, log?: any) {
+  if (roomId && channelId) {
+    roomToChannelMap.set(roomId, channelId);
+    channelToRoomMap.set(channelId, roomId);
+    if (log) {
+      log.info(`[heychat] Cached room->channel: ${roomId} -> ${channelId}`);
+    }
+  }
+}
+
+// 获取 channel_id，如果缓存中没有则返回 room_id
+function getChannelId(roomId: string): string {
+  return roomToChannelMap.get(roomId) || roomId;
+}
+
+// 获取 room_id，如果缓存中没有则返回 channel_id
+function getRoomId(channelId: string): string {
+  return channelToRoomMap.get(channelId) || channelId;
+}
+
+// 生成唯一的 ack_id（避免重复消息错误）
+function generateAckId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+}
 
 // 发送消息到黑盒语音
 async function sendHeychatMessage(
@@ -59,7 +93,7 @@ async function sendHeychatMessage(
   const url = `${HEYCHAT_HTTP_HOST}/chatroom/v2/channel_msg/send?${HEYCHAT_COMMON_PARAMS}`;
 
   const body = {
-    heychat_ack_id: "0",
+    heychat_ack_id: generateAckId(),
     msg_type: options.msgType ?? MSG_TYPE.MARKDOWN,
     msg: options.text,
     channel_id: options.channelId,
@@ -93,6 +127,54 @@ async function sendHeychatMessage(
   }
 }
 
+// 发送卡片消息到黑盒语音
+async function sendHeychatCard(
+  token: string,
+  options: {
+    roomId: string;
+    channelId: string;
+    cardData: any;
+    replyId?: string;
+  }
+): Promise<{ messageId: string; ackId: string; msgId: string }> {
+  const url = `${HEYCHAT_HTTP_HOST}/chatroom/v2/channel_msg/send?${HEYCHAT_COMMON_PARAMS}`;
+
+  // 卡片消息使用 msg_type: 20
+  const body = {
+    heychat_ack_id: generateAckId(),
+    msg_type: 20,
+    msg: JSON.stringify(options.cardData),
+    channel_id: options.channelId,
+    room_id: options.roomId,
+    reply_id: options.replyId ?? "",
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "token": token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    if (result.status !== "ok") {
+      throw new Error(result.msg || "Failed to send card message");
+    }
+
+    return {
+      messageId: result.result?.chatmobile_ack_id ?? "",
+      ackId: result.result?.heychat_ack_id ?? "",
+      msgId: result.result?.msg_id ?? "",
+    };
+  } catch (error) {
+    throw new Error(`Failed to send Heychat card: ${error}`);
+  }
+}
+
 // 探测黑盒语音 Token 是否有效
 async function probeHeychat(token: string, timeoutMs: number = 5000): Promise<HeychatProbeResult> {
   if (!token || !token.trim()) {
@@ -112,6 +194,94 @@ async function probeHeychat(token: string, timeoutMs: number = 5000): Promise<He
   };
 }
 
+// 黑盒语音卡片构建辅助函数
+const HeychatCardBuilder = {
+  // 创建基础卡片结构
+  createCard: (modules: any[]) => ({
+    data: [{
+      type: "card",
+      border_color: "",
+      size: "medium",
+      modules,
+    }],
+  }),
+
+  // 纯文本模块
+  plainText: (text: string, width?: string) => ({
+    type: "section",
+    paragraph: [{
+      type: "plain-text",
+      text,
+      ...(width ? { width } : {}),
+    }],
+  }),
+
+  // Markdown 模块
+  markdown: (text: string, width?: string) => ({
+    type: "section",
+    paragraph: [{
+      type: "markdown",
+      text,
+      ...(width ? { width } : {}),
+    }],
+  }),
+
+  // 多列布局
+  multiColumn: (items: Array<{ type: "plain-text" | "markdown"; text: string; width?: string }>) => ({
+    type: "section",
+    paragraph: items.map(item => ({
+      type: item.type,
+      text: item.text,
+      ...(item.width ? { width: item.width } : {}),
+    })),
+  }),
+
+  // 文本 + 图片
+  textWithImage: (text: string, imageUrl: string, imageSize: "small" | "medium" | "large" = "medium") => ({
+    type: "section",
+    paragraph: [
+      { type: "plain-text", text },
+      { type: "image", url: imageUrl, size: imageSize },
+    ],
+  }),
+
+  // 标题
+  header: (title: string) => ({
+    type: "header",
+    content: {
+      type: "plain-text",
+      text: title,
+    },
+  }),
+
+  // 单图
+  singleImage: (imageUrl: string) => ({
+    type: "images",
+    urls: [{ url: imageUrl }],
+  }),
+
+  // 多图网格
+  imageGrid: (imageUrls: string[]) => ({
+    type: "images",
+    urls: imageUrls.map(url => ({ url })),
+  }),
+
+  // 按钮
+  button: (text: string, url: string, theme: "default" | "success" | "warning" | "danger" = "default") => ({
+    type: "button",
+    event: "link-to",
+    value: url,
+    text,
+    theme,
+  }),
+
+  // 按钮组
+  buttonGroup: (buttons: Array<{ text: string; url: string; theme?: "default" | "success" | "warning" | "danger" }>) => ({
+    type: "button-group",
+    btns: buttons.map(btn => HeychatCardBuilder.button(btn.text, btn.url, btn.theme)),
+  }),
+};
+
 const heychatMessageActions = {
   listActions: (ctx: any) => [],
   extractToolSend: (ctx: any) => null,
@@ -119,6 +289,8 @@ const heychatMessageActions = {
     throw new Error("Heychat message actions not yet implemented");
   },
 };
+
+export { HeychatCardBuilder };
 
 export const heychatPlugin: ChannelPlugin<ResolvedHeychatAccount, HeychatProbeResult> = {
   id: "heychat",
@@ -150,6 +322,7 @@ export const heychatPlugin: ChannelPlugin<ResolvedHeychatAccount, HeychatProbeRe
     polls: false,
     nativeCommands: true,
     blockStreaming: false,
+    cards: true,
   },
   reload: { configPrefixes: ["channels.heychat"] },
   configSchema: {
@@ -329,9 +502,27 @@ export const heychatPlugin: ChannelPlugin<ResolvedHeychatAccount, HeychatProbeRe
         throw new Error("Heychat token not configured");
       }
 
+      // 自动判断 room_id 和 channel_id
+      let finalRoomId: string;
+      let finalChannelId: string;
+
+      if (roomId && channelId) {
+        // 已提供完整格式 room_id:channel_id
+        finalRoomId = roomId;
+        finalChannelId = channelId;
+      } else if (roomId) {
+        // 只提供 room_id，查找缓存的 channel_id
+        finalRoomId = roomId;
+        finalChannelId = getChannelId(roomId) || roomId;
+      } else {
+        // 只提供 channel_id，查找缓存的 room_id
+        finalChannelId = to;
+        finalRoomId = getRoomId(to) || to;
+      }
+
       const result = await sendHeychatMessage(account.token, {
-        roomId: roomId || to,
-        channelId: channelId || roomId || to,
+        roomId: finalRoomId,
+        channelId: finalChannelId,
         text,
         replyId: replyToId,
         msgType: MSG_TYPE.MARKDOWN,
@@ -344,6 +535,41 @@ export const heychatPlugin: ChannelPlugin<ResolvedHeychatAccount, HeychatProbeRe
     },
     sendPoll: async () => {
       throw new Error("Heychat sendPoll not yet implemented");
+    },
+    sendCard: async ({ to, cardData, accountId, replyToId, cfg }) => {
+      const [roomId, channelId] = to.split(":");
+      const account = resolveHeychatAccount({ cfg, accountId: accountId || DEFAULT_ACCOUNT_ID });
+
+      if (!account.token) {
+        throw new Error("Heychat token not configured");
+      }
+
+      // 自动判断 room_id 和 channel_id
+      let finalRoomId: string;
+      let finalChannelId: string;
+
+      if (roomId && channelId) {
+        // 已提供完整格式 room_id:channel_id
+        finalRoomId = roomId;
+        finalChannelId = channelId;
+      } else if (roomId) {
+        // 只提供 room_id，查找缓存的 channel_id
+        finalRoomId = roomId;
+        finalChannelId = getChannelId(roomId) || roomId;
+      } else {
+        // 只提供 channel_id，查找缓存的 room_id
+        finalChannelId = to;
+        finalRoomId = getRoomId(to) || to;
+      }
+
+      const result = await sendHeychatCard(account.token, {
+        roomId: finalRoomId,
+        channelId: finalChannelId,
+        cardData,
+        replyId: replyToId,
+      });
+
+      return { channel: "heychat", messageId: result.messageId, ackId: result.ackId };
     },
   },
   status: {
@@ -427,6 +653,76 @@ async function processHeychatInboundMessage(params: {
   const heychatCfg = cfg.channels?.heychat;
 
   try {
+    // 缓存 room_id -> channel_id 映射
+    if (roomId && channelId && roomId !== channelId) {
+      cacheRoomChannel(roomId, channelId, ctx?.log);
+    }
+
+    // 处理 /pair 命令
+    if (userMessage.startsWith("/pair")) {
+      const parts = userMessage.split(/\s+/);
+      const botId = parts[1]?.trim();
+      
+      ctx.log?.info(`[heychat] [${accountId}] Received /pair command with botId: ${botId}`);
+      
+      if (botId && botId === String(userId)) {
+        // botId 匹配，将 channel_id 添加到 allowFrom
+        const currentAllowFrom = heychatCfg?.allowFrom ?? [];
+        if (!currentAllowFrom.includes(channelId)) {
+          const newAllowFrom = [...currentAllowFrom, channelId];
+          ctx.log?.info(`[heychat] [${accountId}] Adding channel ${channelId} to allowFrom`);
+          
+          // 更新配置
+          await core.config.patch({
+            path: ["channels", "heychat", "allowFrom"],
+            value: newAllowFrom,
+          });
+          
+          ctx.log?.info(`[heychat] [${accountId}] Successfully added ${channelId} to allowFrom`);
+          
+          // 发送成功消息
+          const account = resolveHeychatAccount({ cfg, accountId });
+          if (account.token) {
+            await sendHeychatMessage(account.token, {
+              roomId,
+              channelId,
+              text: `✅ 配对成功！\n\nroom_id: \`${roomId}\`\nchannel_id: \`${channelId}\`\n\n已添加到 allowFrom 列表`,
+              msgType: MSG_TYPE.MARKDOWN,
+            });
+          }
+        } else {
+          // 已经在 allowFrom 中
+          ctx.log?.info(`[heychat] [${accountId}] Channel ${channelId} already in allowFrom`);
+          
+          const account = resolveHeychatAccount({ cfg, accountId });
+          if (account.token) {
+            await sendHeychatMessage(account.token, {
+              roomId,
+              channelId,
+              text: `ℹ️ 该频道已在 allowFrom 列表中\n\nroom_id: \`${roomId}\`\nchannel_id: \`${channelId}\``,
+              msgType: MSG_TYPE.MARKDOWN,
+            });
+          }
+        }
+      } else {
+        // botId 不匹配
+        ctx.log?.warn(`[heychat] [${accountId}] BotId mismatch: expected ${userId}, got ${botId}`);
+        
+        const account = resolveHeychatAccount({ cfg, accountId });
+        if (account.token) {
+          await sendHeychatMessage(account.token, {
+            roomId,
+            channelId,
+            text: `❌ 配对失败：botId 不匹配\n\n请使用正确的 botId: \`${userId}\``,
+            msgType: MSG_TYPE.MARKDOWN,
+          });
+        }
+      }
+      
+      // 不继续处理该消息
+      return;
+    }
+
     // 群组策略检查
     if (isGroup) {
       const account = resolveHeychatAccount({ cfg, accountId });
@@ -542,6 +838,33 @@ async function processHeychatInboundMessage(params: {
       contextKey: `heychat:message:${conversationId}:${msgId}`,
     });
 
+    // 收到消息时添加表情反应（可配置）
+    const account = resolveHeychatAccount({ cfg, accountId });
+    const token = account.token || "";
+    let reactionId: string | null = null;
+    
+    // 读取表情配置（支持自定义）
+    const reactionsCfg = (cfg.channels?.heychat as any)?.reactions;
+    const processingEmoji = reactionsCfg?.enabled !== false 
+      ? (reactionsCfg?.processing || HeychatEmoji.EYES)
+      : null;
+    
+    if (token && msgId && processingEmoji) {
+      addReactionHeychat({
+        cfg,
+        roomId,
+        channelId,
+        msgId,
+        emoji: processingEmoji,
+        accountId,
+      })
+        .then((result) => {
+          reactionId = result.reactionId;
+          ctx.log?.info(`[heychat] Added reaction: ${result.reactionId} (${processingEmoji})`);
+        })
+        .catch(err => ctx.log?.warn(`[heychat] Failed to add reaction: ${err}`));
+    }
+
     // 创建回复分发器并触发 Agent 回复
     const { dispatcher, replyOptions, markDispatchIdle } =
       core.channel.reply.createReplyDispatcherWithTyping({
@@ -575,6 +898,20 @@ async function processHeychatInboundMessage(params: {
       markDispatchIdle();
       if (queuedFinal || (counts?.final ?? 0) > 0) {
         ctx.log?.info(`[heychat] [${accountId}] Agent reply complete (queuedFinal=${queuedFinal}, replies=${counts?.final ?? 0})`);
+        
+        // 回复完成后取消表情反应（使用相同的表情）
+        if (reactionId && msgId && processingEmoji) {
+          removeReactionHeychat({
+            cfg,
+            roomId,
+            channelId,
+            msgId,
+            emoji: processingEmoji,
+            accountId,
+          })
+            .then(() => ctx.log?.info(`[heychat] Removed reaction: ${reactionId}`))
+            .catch(err => ctx.log?.warn(`[heychat] Failed to remove reaction: ${err}`));
+        }
       }
     } catch (err) {
       ctx.log?.error(`[heychat] [${accountId}] Failed to dispatch reply: ${String(err)}`);
@@ -704,6 +1041,13 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
                   userMessage = innerData.msg;
                 }
               }
+            } else if (typeStr === "50" || innerData.command_info) {
+              // Type 50: Bot command event (direct command_info in root)
+              commandInfo = innerData.command_info;
+              roomBaseInfo = innerData.room_base_info;
+              channelBaseInfo = innerData.channel_base_info;
+              senderInfo = innerData.sender_info;
+              userMessage = commandInfo.options?.[0]?.value || "";
             } else {
               // Fallback: extract data from common fields
               roomBaseInfo = innerData.room_base_info || innerData.room_info;
@@ -756,6 +1100,101 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
 
             if (commandInfo) {
               ctx.log?.info(`[heychat] [${ctx.accountId}] Received command: ${commandInfo.name} from ${senderName} (msgId=${msgId})`);
+              ctx.log?.info(`[heychat] [${ctx.accountId}] Command details: ${JSON.stringify(commandInfo)}`);
+              
+              // 处理 /pair 命令
+              if (commandInfo.name === "pair" || commandInfo.name === "/pair" || commandInfo.name === "配对") {
+                ctx.log?.info(`[heychat] [${ctx.accountId}] Processing /pair command`);
+                
+                // 获取命令参数（可能是 botToken 或 bot_id）
+                const option = commandInfo.options?.[0];
+                const paramName = option?.name;
+                const botId = option?.value?.trim();
+                
+                ctx.log?.info(`[heychat] [${ctx.accountId}] /pair parameter: name=${paramName}, value=${botId}`);
+                
+                // 获取当前机器人 Token 进行验证
+                const account = resolveHeychatAccount({ cfg: ctx.config, accountId: ctx.accountId });
+                const currentToken = account.token;
+                
+                ctx.log?.info(`[heychat] [${ctx.accountId}] Token comparison: incoming="${botId}", current="${currentToken ? currentToken.substring(0, 20) + "..." : "none"}"`);
+                
+                // 验证传入的 Token 是否与当前机器人 Token 匹配
+                if (botId && currentToken && botId === currentToken) {
+                  // botId 匹配，将 channel_id 添加到 allowFrom
+                  const currentAllowFrom = ctx.config.channels?.heychat?.allowFrom ?? [];
+                  if (!currentAllowFrom.includes(channelId)) {
+                    const newAllowFrom = [...currentAllowFrom, channelId];
+                    ctx.log?.info(`[heychat] [${ctx.accountId}] Adding channel ${channelId} to allowFrom`);
+                    
+                    // 更新配置 - 直接写入配置文件
+                    const fs = await import("fs");
+                    const path = await import("path");
+                    const configPath = path.join(process.env.HOME || process.env.USERPROFILE || "", ".openclaw", "openclaw.json");
+                    
+                    try {
+                      // 读取当前配置
+                      const configContent = fs.readFileSync(configPath, "utf-8");
+                      const config = JSON.parse(configContent);
+                      
+                      // 更新 allowFrom
+                      if (!config.channels) config.channels = {};
+                      if (!config.channels.heychat) config.channels.heychat = {};
+                      if (!config.channels.heychat.allowFrom) config.channels.heychat.allowFrom = [];
+                      
+                      if (!config.channels.heychat.allowFrom.includes(channelId)) {
+                        config.channels.heychat.allowFrom.push(channelId);
+                        
+                        // 写回配置文件
+                        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+                        ctx.log?.info(`[heychat] [${ctx.accountId}] Successfully wrote config to ${configPath}`);
+                      }
+                    } catch (configErr) {
+                      ctx.log?.error(`[heychat] [${ctx.accountId}] Failed to update config file: ${configErr}`);
+                    }
+                    
+                    ctx.log?.info(`[heychat] [${ctx.accountId}] Successfully added ${channelId} to allowFrom`);
+                    
+                    // 发送成功消息
+                    if (account.token) {
+                      await sendHeychatMessage(account.token, {
+                        roomId,
+                        channelId,
+                        text: `已经加入列表了`,
+                        msgType: MSG_TYPE.MARKDOWN,
+                      });
+                    }
+                  } else {
+                    // 已经在 allowFrom 中
+                    ctx.log?.info(`[heychat] [${ctx.accountId}] Channel ${channelId} already in allowFrom`);
+                    
+                    if (account.token) {
+                      await sendHeychatMessage(account.token, {
+                        roomId,
+                        channelId,
+                        text: `已经在列表里`,
+                        msgType: MSG_TYPE.MARKDOWN,
+                      });
+                    }
+                  }
+                } else {
+                  // Token 不匹配
+                  ctx.log?.warn(`[heychat] [${ctx.accountId}] Token mismatch: incoming="${botId?.substring(0, 20)}...", expected="${currentToken?.substring(0, 20)}..."`);
+                  
+                  if (account.token) {
+                    await sendHeychatMessage(account.token, {
+                      roomId,
+                      channelId,
+                      text: `❌ Token 不匹配\n\n请确认你输入的是当前机器人的 Token`,
+                      msgType: MSG_TYPE.MARKDOWN,
+                    });
+                  }
+                }
+                
+                // 命令已处理，跳过后续消息处理
+                HEYCHAT_PROCESSING_MSG_IDS.delete(msgId);
+                return;
+              }
             } else {
               ctx.log?.info(`[heychat] [${ctx.accountId}] Received message from ${senderName} (msgId=${msgId})`);
             }
