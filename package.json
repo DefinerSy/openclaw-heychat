@@ -1,6 +1,6 @@
 {
   "name": "definersy-heychat-openclaw",
-  "version": "2026.2.26",
+  "version": "2026.2.27",
   "private": false,
   "description": "OpenClaw Heychat (黑盒语音) channel plugin",
   "type": "module",
