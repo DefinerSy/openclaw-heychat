@@ -26,12 +26,15 @@
 
 ## 安装
 
-### 前提条件
+### 方式一：NPM 安装（推荐）
 
-1. 已安装 [OpenClaw](https://github.com/openclaw-ai/openclaw)
-2. 已获取 Heychat App Token
+```bash
+npm install definersy-heychat-openclaw
+```
 
-### 安装步骤
+安装完成后，插件会自动集成到 OpenClaw 中。
+
+### 方式二：从源码安装
 
 ```bash
 # 克隆插件到 OpenClaw 扩展目录
@@ -42,18 +45,25 @@ cd ~/.openclaw/extensions/heychat
 npm install
 ```
 
+### 前提条件
+
+1. 已安装 [OpenClaw](https://github.com/openclaw-ai/openclaw)
+2. 已获取 Heychat App Token
+
 ---
 
-## 获取 Heychat Token
+## 配置
+
+安装完成后，需要进行以下配置：
+
+### 步骤一：获取 Heychat Token
 
 1. 打开黑盒语音 APP
 2. 进入设置 -> 开发者选项
 3. 创建机器人应用
 4. 复制 App Token（格式如：`YOUR_TOKEN_HERE`）
 
----
-
-## 配置
+### 步骤二：配置插件
 
 ### 方式一：通过 UI 面板配置（推荐）
 
@@ -417,15 +427,15 @@ Room (房间)
 
 ```typescript
 // 只提供 channel_id → 自动查找 room_id
-await sendText({ to: "YOUR_CHANNEL_ID", text: "你好" });
+await sendText({ to: "YOUR_CHANNEL_ID", text: "你好", cfg: config });
 // → 自动查找 room_id: "YOUR_ROOM_ID"
 
 // 只提供 room_id → 自动查找 channel_id
-await sendText({ to: "YOUR_ROOM_ID", text: "你好" });
+await sendText({ to: "YOUR_ROOM_ID", text: "你好", cfg: config });
 // → 自动查找 channel_id: "YOUR_CHANNEL_ID" (第一个缓存的)
 
 // 提供完整格式 → 直接使用
-await sendText({ to: "YOUR_ROOM_ID:YOUR_CHANNEL_ID", text: "你好" });
+await sendText({ to: "YOUR_ROOM_ID:YOUR_CHANNEL_ID", text: "你好", cfg: config });
 // → room_id: "YOUR_ROOM_ID", channel_id: "YOUR_CHANNEL_ID"
 ```
 
