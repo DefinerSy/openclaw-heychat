@@ -234,6 +234,84 @@ nano .env
 
 ---
 
+## ⚙️ 命令配置
+
+### 设置指令
+
+在**黑盒语音机器人管理后台**的设置界面中，需要配置以下两个命令：
+
+#### 命令 JSON 示例
+
+```json
+[
+  {
+    "protocol": null,
+    "permission": null,
+    "name": "/chat",
+    "description": "机器人会调用 AI 并回复",
+    "options": [
+      {
+        "key": null,
+        "required": true,
+        "description": "你想要发送的文本",
+        "name": "message",
+        "type": 3
+      }
+    ],
+    "id": "2026367028308795392",
+    "type": 0
+  },
+  {
+    "protocol": null,
+    "permission": null,
+    "name": "/pair",
+    "description": "配对房间",
+    "options": [
+      {
+        "key": null,
+        "required": true,
+        "description": "黑盒 bot 的 token",
+        "name": "botToken",
+        "type": 3
+      }
+    ],
+    "id": "2026621708893081600",
+    "type": 0
+  }
+]
+```
+
+#### 字段说明
+
+| 字段 | 说明 |
+|------|------|
+| `name` | 命令名称（如 `/chat`、`/pair`） |
+| `description` | 命令描述 |
+| `options` | 命令参数列表 |
+| `options[].name` | 参数名（如 `message`、`botToken`） |
+| `options[].type` | 参数类型（`3` = 文本） |
+| `options[].required` | 是否必填（`true`/`false`） |
+| `options[].description` | 参数描述 |
+
+#### 配置步骤
+
+1. 打开**小黑盒机器人管理后台**
+2. 进入「命令设置」或「指令配置」
+3. 添加新命令 `/chat`，添加变量 `message`（文本类型，必填）
+4. 添加新命令 `/pair`，添加变量 `botToken`（文本类型，必填）
+5. 保存配置
+
+#### 使用示例
+
+```
+/chat 你好，这是一条测试消息
+/pair YOUR_BOT_TOKEN_HERE
+```
+
+> ⚠️ **注意：** 请勿在文档、聊天记录或版本控制中明文保存 Token。使用占位符代替实际 Token。
+
+---
+
 ## /pair 配对指令
 
 ### 功能说明
