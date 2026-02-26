@@ -1,4 +1,4 @@
-<img width="313" height="94" alt="image" src="https://github.com/user-attachments/assets/e9cdafcd-ff3d-451e-bf42-302a42ce17a0" /># Heychat (黑盒语音) OpenClaw 插件
+# Heychat (黑盒语音) OpenClaw 插件
 
 [Heychat](https://www.xiaoheihe.cn/) (黑盒语音) channel plugin for [OpenClaw](https://github.com/openclaw-ai/openclaw)
 
