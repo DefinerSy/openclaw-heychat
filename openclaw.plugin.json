@@ -1,5 +1,5 @@
 {
-  "id": "heychat",
+  "id": "definersy-heychat-openclaw",
   "channels": ["heychat"],
   "configSchema": {
     "type": "object",
