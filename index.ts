@@ -4,7 +4,7 @@ import { heychatPlugin } from "./src/channel.js";
 import { setHeychatRuntime } from "./src/runtime.js";
 
 const plugin = {
-  id: "heychat",
+  id: "definersy-heychat-openclaw",
   name: "Heychat",
   description: "Heychat (黑盒语音) channel plugin",
   configSchema: emptyPluginConfigSchema(),

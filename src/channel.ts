@@ -604,8 +604,6 @@ export const heychatPlugin: ChannelPlugin<ResolvedHeychatAccount, HeychatProbeRe
         throw new Error("Heychat token not configured");
       }
 
-      ctx.log?.info(`[heychat] [${ctx.accountId}] connecting to Heychat WebSocket...`);
-
       // 建立 WebSocket 连接并转发到 OpenClaw Gateway
       return startHeychatWebSocket(token, {
         accountId: ctx.accountId,
@@ -956,7 +954,7 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
       });
 
       ws.on("open", () => {
-        ctx.log?.info(`[heychat] [${ctx.accountId}] Connected to Heychat server`);
+        ctx.log?.info(`[heychat] [${ctx.accountId}] Connected to Heychat WebSocket`);
 
         // 启动心跳
         if (pingTimer) clearInterval(pingTimer);
@@ -965,8 +963,6 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
             ws.send("PING");
           }
         }, 30000);
-
-        ctx.log?.info(`[heychat] [${ctx.accountId}] Heychat WebSocket connected`);
       });
 
       ws.on("message", async (data: any) => {
@@ -982,18 +978,11 @@ async function startHeychatWebSocket(token: string, ctx: HeychatWSContext): Prom
           const typeStr = String(event.type);
           const innerData = event.data || event;
 
-          // 调试日志：记录所有接收到的事件类型
-          ctx.log?.info(`[heychat] [${ctx.accountId}] Received event type: ${typeStr}`);
-          ctx.log?.info(`[heychat] [${ctx.accountId}] Event data: ${JSON.stringify(innerData).substring(0, 2000)}`);
-
-          // 记录 PUSH 事件的完整数据
+          // 调试日志：记录 PUSH 事件的完整数据
           if (typeStr === "PUSH" || typeStr === "push") {
-            ctx.log?.info(`[heychat] [${ctx.accountId}] PUSH event: ${JSON.stringify(event).substring(0, 1000)}`);
-
             // 检查是否是通知事件（event: "80"），这种事件只包含 userid，不包含消息内容
             const pushData = event.data || {};
             if (pushData.event === "80" && pushData.type === "notify") {
-              ctx.log?.info(`[heychat] [${ctx.accountId}] Received heartbeat/notification from userid=${pushData.userid}`);
               // 通知事件不包含消息内容，忽略
               return;
             }
